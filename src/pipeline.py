@@ -3,6 +3,7 @@ import os
 import requests
 import pandas as pd
 from dotenv import load_dotenv
+import time
 load_dotenv()
 
 ROLE_MAP = {
@@ -144,7 +145,7 @@ def process_and_load_etl(raw_matches: list, queue_label: str):
 
 
 # ── Ranked wrapper ───────────────────────────────────────────────────────────
-def load_ranked_history(name: str, tag: str, size: int = 15):
+def load_ranked_history(name: str, tag: str, size: int=50):
     """Fetch up to `size` competitive matches and load them."""
     print("\n--- Running Ranked Pipeline ---")
     raw = fetch_raw_data(name, tag, mode='competitive', size=size)
@@ -152,7 +153,7 @@ def load_ranked_history(name: str, tag: str, size: int = 15):
         process_and_load_etl(raw, queue_label='competitive')
 
 # ── Unranked wrapper ───────────────────────────────────────────────────────────
-def load_unranked_history(name: str, tag: str, size: int = 15):
+def load_unranked_history(name: str, tag: str, size: int=50):
     """Fetch up to `size` non-competitive matches and load them.
     Makes two requests (unrated + swiftplay) and merges, so you get
     up to size matches per mode rather than splitting a single 30-match pool.
@@ -166,12 +167,64 @@ def load_unranked_history(name: str, tag: str, size: int = 15):
     else:
         print("No unranked matches found.")
 
+def fetch_all_matches(name, tag, mode=None, page_size=50):
+    """
+    Paginate through stored-matches until no more results come back.
+    Returns a flat list of all match objects across all pages.
+    """
+    api_key = os.getenv("VALO_API_KEY")
+    headers = {'Authorization': api_key}
+    all_matches = []
+    page = 1
+
+    while True:
+        url = (
+            f"https://api.henrikdev.xyz/valorant/v1/stored-matches/ap/{name}/{tag}"
+            f"?size={page_size}&page={page}"
+        )
+        if mode:
+            url += f"&mode={mode}"
+
+        print(f"  Fetching page {page} [{mode or 'all'}]...")
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 429:
+            print("  Rate limited — waiting 10s...")
+            time.sleep(10)
+            continue  # retry same page
+
+        if response.status_code != 200:
+            print(f"  Error {response.status_code} on page {page}, stopping.")
+            break
+
+        payload = response.json()
+        batch = payload.get('data', [])
+
+        if not batch:
+            break  # no more data
+
+        all_matches.extend(batch)
+
+        # The response tells you total stored vs returned so far
+        results = payload.get('results', {})
+        total   = results.get('total', 0)
+        after   = results.get('after', 0)  # matches still remaining after this page
+
+        print(f"  Got {len(batch)} matches (total stored: {total}, remaining: {after})")
+
+        if after == 0:
+            break  # fetched everything
+
+        page += 1
+        time.sleep(0.5)  # be polite to the API
+
+    return all_matches
 
 # ── main fn ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     PLAYER_NAME = "sohamchalulu"
     PLAYER_TAG  = "69420"
 
-    load_ranked_history(PLAYER_NAME, PLAYER_TAG, size=15)
-    load_unranked_history(PLAYER_NAME, PLAYER_TAG, size=15)
+    load_ranked_history(PLAYER_NAME, PLAYER_TAG )
+    load_unranked_history(PLAYER_NAME, PLAYER_TAG)
     print("\nDual-ingestion pipeline finished successfully!")
