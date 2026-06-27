@@ -16,6 +16,27 @@ def get_overview_stats(engine,queue:str):
     return res.iloc[0].to_dict()
 
 
+def get_kda_trend(engine,queue:str)->pd.Dataframe:
+    query=text('''
+    WITH base AS(
+    SELECT ROW_NUMBER() OVER (ORDER BY s.id ASC)
+    s.kills,s.deaths,s.assists,s.won,s.agent_name,m.map_name,
+    ROUND(CAST(s.kills+s.assists AS FLOAT)/NULLIF(s.death,0),2)
+    FROM player_match_stats s
+    join valorant_matches m on s.match_id=m.match_id
+    where m.queue_type= :queue
+    )
+    select match_num,kills,deaths,assists,won,agent_name,map_name,kda,
+    ROUND(AVG(kda) OVER(
+                    ORDER BY match_num
+                    ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS rolling_avg
+                    ),2)
+    FROM base
+    ORDER BY match_num ASC
+    ''')
+    return pd.read_sql(query,con=engine,params={'queue':queue})
+
+
 if __name__ == "__main__":
     from sqlalchemy import create_engine
     engine = create_engine(DATABASE_URL)
