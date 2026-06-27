@@ -16,7 +16,7 @@ def get_overview_stats(engine,queue:str):
     return res.iloc[0].to_dict()
 
 
-def get_kda_trend(engine,queue:str)->pd.Dataframe:
+def get_kda_trend(engine,queue:str)->pd.DataFrame:
     query=text('''
     WITH base AS(
     SELECT ROW_NUMBER() OVER (ORDER BY s.id ASC)
