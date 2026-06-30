@@ -220,11 +220,3 @@ def fetch_all_matches(name, tag, mode=None, page_size=50):
 
     return all_matches
 
-# ── main fn ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    PLAYER_NAME = "sohamchalulu"
-    PLAYER_TAG  = "69420"
-
-    load_ranked_history(PLAYER_NAME, PLAYER_TAG )
-    load_unranked_history(PLAYER_NAME, PLAYER_TAG)
-    print("\nDual-ingestion pipeline finished successfully!")

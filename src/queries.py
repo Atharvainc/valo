@@ -44,6 +44,8 @@ def get_agent_breakdown(engine,queue:str)->pd.DataFrame:
         ROUND(AVG(CAST(assists AS FLOAT)),2) AS avg_assists,
         ROUND(AVG(CAST(kills+assists AS FLOAT)/NULLIF(deaths,0)),2) AS avg_kda,
         ROUND(AVG(CAST(headshots AS FLOAT)/NULLIF(headshots+bodyshots+legshots,0)*100),1) AS avg_hs_pct,
+        ROUND(AVG(CAST(bodyshots AS FLOAT)/NULLIF(headshots+bodyshots+legshots,0)*100),1) AS avg_bs_pct,
+        ROUND(AVG(CAST(legshots AS FLOAT)/NULLIF(headshots+bodyshots+legshots,0)*100),1) AS avg_ls_pct,
         ROUND(SUM(CASE WHEN won=1 THEN 1 ELSE 0 END)*100/NULLIF(COUNT(*),0),1) AS winrate,
         agent_name,agent_role
         FROM player_match_stats s
@@ -66,13 +68,8 @@ def get_map_stats(engine,queue:str)->pd.DataFrame:
     WHERE m.queue_type= :queue
     GROUP BY map_name
     HAVING COUNT(*)>=3
-    ORDER BY win_rate DESC
+    ORDER BY winrate DESC
     ''')
     return pd.read_sql(query,con=engine,params={'queue':queue})
 
-if __name__ == "__main__":
-    from sqlalchemy import create_engine
-    engine = create_engine(DATABASE_URL)
-    df = get_map_stats(engine, queue="competitive")
-    print(df.head(10))
-    print(df.shape)
+
