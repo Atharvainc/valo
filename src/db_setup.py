@@ -1,5 +1,6 @@
 import os
-from sqlalchemy import create_engine, Column, String, Integer, Boolean, ForeignKey
+from pathlib import Path
+from sqlalchemy import create_engine, Column, String, Integer, Boolean, ForeignKey, Index
 from sqlalchemy.orm import declarative_base, relationship
 from dotenv import load_dotenv
 
@@ -11,14 +12,18 @@ Base = declarative_base()
 class MatchMetadata(Base):
     __tablename__ = 'valorant_matches'
 
-    match_id   = Column(String,  primary_key=True)
-    map_name   = Column(String,  nullable=False)
-    queue_type = Column(String,  nullable=False)   # "competitive" | "unrated" | "swiftplay" …
-    # Robust Safeguard:match delete:all its stats delete
+    match_id    = Column(String, primary_key=True)
+    player_name = Column(String, nullable=False)
+    player_tag  = Column(String, nullable=False)
+    map_name    = Column(String, nullable=False)
+    queue_type  = Column(String, nullable=False)
+
     performance_stats = relationship(
-        "PlayerMatchStats",
-        backref="match",
-        cascade="all, delete-orphan"
+        "PlayerMatchStats", backref="match", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index('idx_player_queue', 'player_name', 'player_tag', 'queue_type'),
     )
 
 class PlayerMatchStats(Base):
@@ -36,7 +41,8 @@ class PlayerMatchStats(Base):
     legshots = Column(Integer, default=0)
     won = Column(Boolean, nullable=True)   # True = win, False = loss, None = couldn't determine
 
-DATABASE_URL = "sqlite:///local_valorant.db"
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATABASE_URL = f"sqlite:///{BASE_DIR / 'local_valorant.db'}"
 
 def init_db(drop_existing=False):
     engine = create_engine(DATABASE_URL)

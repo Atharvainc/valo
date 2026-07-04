@@ -1,9 +1,4 @@
 import plotly.graph_objects as go
-import plotly.express as px
-from sqlalchemy import create_engine
-from db_setup import DATABASE_URL
-from queries import get_kda_trend,get_agent_breakdown,get_map_stats,get_overview_stats
-
 
 ROLE_COLORS = {
     "Duelist":    "#7C3AED",   
@@ -137,3 +132,31 @@ def shot_accuracy(df)->go.Figure:
     )
     return fig
 
+def winrate_donut(stats: dict) -> go.Figure:
+    wins = round(stats['win_rate'] / 100 * stats['total_matches'])
+    losses = stats['total_matches'] - wins
+
+    fig = go.Figure()
+    fig.add_trace(go.Pie(
+        labels=['Wins', 'Losses'],
+        values=[wins, losses],
+        hole=0.7,
+        marker=dict(colors=[WIN_COLOR, LOSS_COLOR]),
+        textinfo='none',          
+        hoverinfo='label+value',
+        sort=False,                
+    ))
+
+    fig.update_layout(
+        **{**LAYOUT_BASE, "showlegend": False},  # type: ignore
+        annotations=[dict(
+            text=f"{stats['win_rate']}%<br><span style='font-size:11px;color:#888780'>{stats['total_matches']} games</span>",
+            x=0.5, y=0.5,
+            font=dict(size=20, color="#2C2C2A"),
+            showarrow=False,
+        )],
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=140,
+        width=140,
+    )
+    return fig

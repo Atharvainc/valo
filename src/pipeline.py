@@ -40,7 +40,7 @@ def fetch_raw_data(name, tag, mode: str|None = None, size: int = 30):
     mode_label = mode or "all modes"
     print(f"Requesting stored matches for {name}#{tag} [{mode_label}]...")
 
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers) # type: ignore
     if response.status_code != 200:
         print(f"Bad request: status={response.status_code} | {response.text[:120]}")
         return []
@@ -67,12 +67,7 @@ def _derive_won(match: dict) -> bool | None:
         return None
 
 
-def process_and_load_etl(raw_matches: list, queue_label: str):
-    """
-    Transform raw match objects and load into SQLite.
-    queue_label – human-readable string stored in the DB: "competitive" or "unrated" etc.
-                  Used only for logging; actual filtering is done before calling this.
-    """
+def process_and_load_etl(raw_matches: list, player_name: str, player_tag: str):
     engine = init_db(drop_existing=False)
     metadata_rows = []
     stats_rows = []
@@ -83,15 +78,12 @@ def process_and_load_etl(raw_matches: list, queue_label: str):
         if not match_id:
             continue
 
-        # all key paths now go through match['stats']
+        queue_label = meta.get('mode', 'unknown').lower()
         player_stats = match.get('stats')
         if not player_stats:
-            print(f"Skipping {match_id}: no stats block found.")
             continue
-
         character = player_stats.get('character')
         if not character:
-            print(f"Skipping {match_id}: no character data (remake / dodge / Cheater detected?).")
             continue
 
         agent = character.get('name', 'Unknown')
@@ -101,122 +93,68 @@ def process_and_load_etl(raw_matches: list, queue_label: str):
 
         metadata_rows.append({
             "match_id": match_id,
+            "player_name": player_name,
+            "player_tag": player_tag,
             "map_name": meta.get('map', {}).get('name', 'Unknown'),
             "queue_type": queue_label,
         })
-
         stats_rows.append({
             "match_id": match_id,
             "agent_name": agent,
             "agent_role": role,
-            "kills": player_stats.get('kills',   0),
-            "deaths": player_stats.get('deaths',  0),
-            "assists": player_stats.get('assists',  0),
+            "kills": player_stats.get('kills', 0),
+            "deaths": player_stats.get('deaths', 0),
+            "assists": player_stats.get('assists', 0),
             "headshots": shots.get('head', 0),
             "bodyshots": shots.get('body', 0),
-            "legshots": shots.get('leg',  0),
+            "legshots": shots.get('leg', 0),
             "won": won,
         })
 
     if not stats_rows:
-        print(f"No processable {queue_label} matches found in payload.")
+        print("No processable matches found in payload.")
         return
 
     df_matches = pd.DataFrame(metadata_rows).drop_duplicates(subset=['match_id'])
     df_stats = pd.DataFrame(stats_rows)
 
-    # Deduplicate against what's already in the DB
     try:
         existing = pd.read_sql("SELECT match_id FROM valorant_matches", con=engine)['match_id'].tolist()
         df_matches = df_matches[~df_matches['match_id'].isin(existing)]
         df_stats = df_stats[~df_stats['match_id'].isin(existing)]
     except Exception:
-        pass     # DB empty on first run — safe to skip
+        pass
 
     if not df_matches.empty:
-        print(f"Ingesting {len(df_matches)} new {queue_label} matches...")
-        df_matches.to_sql('valorant_matches',  con=engine, if_exists='append', index=False)
+        print("Ingesting new matches:", df_matches['queue_type'].value_counts().to_dict())
+        df_matches.to_sql('valorant_matches', con=engine, if_exists='append', index=False)
 
     if not df_stats.empty:
         print(f"Ingesting {len(df_stats)} player stat rows...")
         df_stats.to_sql('player_match_stats', con=engine, if_exists='append', index=False)
     else:
-        print(f"No new {queue_label} data — DB already up to date.")
+        print("No new data — DB already up to date.")
 
-
-# ── Ranked wrapper ───────────────────────────────────────────────────────────
-def load_ranked_history(name: str, tag: str, size: int=50):
-    """Fetch up to `size` competitive matches and load them."""
-    print("\n--- Running Ranked Pipeline ---")
-    raw = fetch_raw_data(name, tag, mode='competitive', size=size)
-    if raw:
-        process_and_load_etl(raw, queue_label='competitive')
-
-# ── Unranked wrapper ───────────────────────────────────────────────────────────
-def load_unranked_history(name: str, tag: str, size: int=50):
-    """Fetch up to `size` non-competitive matches and load them.
-    Makes two requests (unrated + swiftplay) and merges, so you get
-    up to size matches per mode rather than splitting a single 30-match pool.
+def load_all_history(name: str, tag: str, size_per_mode: int = 50):
     """
-    print("\n--- Running Unranked Pipeline ---")
-    unrated = fetch_raw_data(name, tag, mode='unrated',   size=size)
-    swiftplay = fetch_raw_data(name, tag, mode='swiftplay', size=size)
-    combined = unrated + swiftplay
-    if combined:
-        process_and_load_etl(combined, queue_label='unranked')
-    else:
-        print("No unranked matches found.")
+    Fetch each mode separately (guarantees sample size per mode,
+    so competitive doesn't get crowded out by casual spam),
+    then run everything through ONE generic ETL call.
+    """
+    print("\n--- Running Full History Pipeline ---")
 
-def fetch_all_matches(name, tag, mode=None, page_size=50):
-    """
-    Paginate through stored-matches until no more results come back.
-    Returns a flat list of all match objects across all pages.
-    """
-    api_key = os.getenv("VALO_API_KEY")
-    headers = {'Authorization': api_key}
+    modes = ['competitive', 'unrated', 'swiftplay', 'deathmatch']
     all_matches = []
-    page = 1
 
-    while True:
-        url = (
-            f"https://api.henrikdev.xyz/valorant/v1/stored-matches/ap/{name}/{tag}"
-            f"?size={page_size}&page={page}"
-        )
-        if mode:
-            url += f"&mode={mode}"
+    for mode in modes:
+        raw = fetch_raw_data(name, tag, mode=mode, size=size_per_mode)
+        if raw:
+            print(f"  Got {len(raw)} {mode} matches")
+            all_matches.extend(raw)
+        time.sleep(0.3)
 
-        print(f"  Fetching page {page} [{mode or 'all'}]...")
-        response = requests.get(url, headers=headers)
-
-        if response.status_code == 429:
-            print("  Rate limited — waiting 10s...")
-            time.sleep(10)
-            continue  # retry same page
-
-        if response.status_code != 200:
-            print(f"  Error {response.status_code} on page {page}, stopping.")
-            break
-
-        payload = response.json()
-        batch = payload.get('data', [])
-
-        if not batch:
-            break  # no more data
-
-        all_matches.extend(batch)
-
-        # The response tells you total stored vs returned so far
-        results = payload.get('results', {})
-        total   = results.get('total', 0)
-        after   = results.get('after', 0)  # matches still remaining after this page
-
-        print(f"  Got {len(batch)} matches (total stored: {total}, remaining: {after})")
-
-        if after == 0:
-            break  # fetched everything
-
-        page += 1
-        time.sleep(0.5)  # be polite to the API
-
-    return all_matches
+    if all_matches:
+        process_and_load_etl(all_matches,player_name=name,player_tag=tag)
+    else:
+        print("No matches found across any mode.")
 
