@@ -6,6 +6,7 @@ from db_setup import DATABASE_URL, init_db
 from pipeline import fetch_raw_data, process_and_load_etl, load_all_history
 from queries import get_overview_stats, get_kda_trend, get_agent_breakdown, get_map_stats
 from charts import kda_trend, agent_breakdown, role_distribution, map_winrate, shot_accuracy,winrate_donut
+from aio import generate_overview
 
 engine = create_engine(DATABASE_URL)
 init_db(drop_existing=False) 
@@ -100,6 +101,16 @@ bottom_row = dbc.Row([
     ),
 ], className="mb-4")
 
+ai_row = dbc.Row([
+    dbc.Col(
+        dbc.Card(dbc.CardBody([
+            html.P("AI overview", className="text-muted mb-2", style={"fontSize": "12px"}),
+            html.P(id="ai-overview-text", className="mb-0"),
+        ])),
+        width=12
+    ),
+], className="mb-4")
+
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = dbc.Container([
@@ -107,6 +118,7 @@ app.layout = dbc.Container([
     kpi_row,
     main_row,
     bottom_row,
+    ai_row
 ], fluid=True)
 
 @callback(
@@ -118,6 +130,7 @@ app.layout = dbc.Container([
     Output("chart-agent-breakdown", "figure"),
     Output("chart-map-winrate", "figure"),
     Output("chart-shot-accuracy", "figure"),
+    Output('ai-overview-text', 'children'),
     Input("submit-btn", "n_clicks"),
     State("player-name", "value"),
     State("player-tag", "value"),
@@ -145,5 +158,9 @@ def update_dashboard(n_clicks, name, tag, queue):
     map_fig   = map_winrate(df_maps)
     shot_fig  = shot_accuracy(df_shots)
     donut_fig = winrate_donut(stats)
+    ai_overview=generate_overview(stats=stats,df_agents=df_agents,df_maps=df_maps)
 
-    return f"{stats['avg_kda']}", f"{stats['avg_hs_pct']}%", donut_fig, trend_fig, role_fig, agent_fig, map_fig, shot_fig
+    return f"{stats['avg_kda']}", f"{stats['avg_hs_pct']}%", donut_fig, trend_fig, role_fig, agent_fig, map_fig, shot_fig, ai_overview
+
+if __name__ == "__main__":
+    app.run(debug=True)

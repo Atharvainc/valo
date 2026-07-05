@@ -142,21 +142,25 @@ def winrate_donut(stats: dict) -> go.Figure:
         values=[wins, losses],
         hole=0.7,
         marker=dict(colors=[WIN_COLOR, LOSS_COLOR]),
-        textinfo='none',          
+        textinfo='none',
         hoverinfo='label+value',
-        sort=False,                
+        sort=False,
     ))
 
+    layout = {
+        **LAYOUT_BASE,
+        "margin": dict(l=0, r=0, t=0, b=0),   # overwrites LAYOUT_BASE's margin key
+        "height": 140,
+        "width": 140,
+    }
+
     fig.update_layout(
-        **{**LAYOUT_BASE, "showlegend": False},  # type: ignore
+        **layout,
         annotations=[dict(
             text=f"{stats['win_rate']}%<br><span style='font-size:11px;color:#888780'>{stats['total_matches']} games</span>",
             x=0.5, y=0.5,
             font=dict(size=20, color="#2C2C2A"),
             showarrow=False,
         )],
-        margin=dict(l=0, r=0, t=0, b=0),
-        height=140,
-        width=140,
     )
     return fig
