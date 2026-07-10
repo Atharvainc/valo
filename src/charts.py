@@ -60,27 +60,32 @@ def kda_trend(df)->go.Figure:
     )
     return fig
 
-def agent_breakdown(df)->go.Figure:
-    fig=go.Figure()
-    colors=df['agent_role'].map(ROLE_COLORS).tolist()
-    fig.add_trace(go.Bar(x=df['avg_kda'],y=df['agent_name'],orientation='h',marker_color=colors,
-                        customdata=df[['avg_kills','avg_deaths','avg_assists','avg_hs_pct','winrate']].values,
-                        hovertemplate=('<b>%{y}</b><br>'
-                                        'avg kda: %{x}<br>'
-                                        'avg kills: %{customdata[0]}<br>'
-                                        'avg deaths: %{customdata[1]}<br>'
-                                        'avg assists: %{customdata[2]}<br>'
-                                        'avg headshot%: %{customdata[3]}<br>'
-                                        'winrate: %{customdata[4]}<extra></extra>'),
-                        text=df['tot_matches'].apply(lambda n:f'n={n}'),
-                        textposition='outside',
-                        textfont=dict(size=10, color='#888780'),
-                        ))
+def agent_breakdown(df) -> go.Figure:
+    fig = go.Figure()
+    colors = df['agent_role'].map(ROLE_COLORS).tolist()
+
+    fig.add_trace(go.Bar(
+        x=df['avg_kda'],
+        y=df['agent_name'],
+        orientation='h',
+        marker_color=colors,
+        customdata=df[['avg_kills', 'avg_deaths', 'avg_assists', 'avg_hs_pct', 'winrate']].values,
+        hovertemplate=(
+            '<b>%{y}</b><br>avg kda: %{x}<br>avg kills: %{customdata[0]}<br>'
+            'avg deaths: %{customdata[1]}<br>avg assists: %{customdata[2]}<br>'
+            'avg headshot%%: %{customdata[3]}<br>winrate: %{customdata[4]}%%<extra></extra>'
+        ),
+        text=df['tot_matches'].apply(lambda n: f'n={n}'),
+        textposition='outside',
+        textfont=dict(size=10, color='#9598A1'),
+    ))
+
+    layout = {**LAYOUT_BASE, "bargap": 0.5}   
     fig.update_layout(
-        **LAYOUT_BASE, # type: ignore
+        **layout,
         title='Agent performance',
-        xaxis=dict(title='Avg KDA',gridcolor='rgba(0,0,0,0.05)'),
-        yaxis=dict(title='',autorange='reversed')
+        xaxis=dict(title='Avg KDA', gridcolor='rgba(255,255,255,0.08)'),
+        yaxis=dict(title='', autorange='reversed'),
     )
     return fig
 
@@ -101,19 +106,28 @@ def role_distribution(df)->go.Figure:
     )
     return fig
 
-def map_winrate(df)->go.Figure:
-    fig=go.Figure()
-    fig.add_trace(go.Bar(x=df['map_name'],y=df['winrate'],orientation='v',
-                         customdata=df[['tot_matches','avg_kda']].values,
-                         hovertemplate=('<b>%{x}</b><br>'
-                                        'winrate: %{y}%<br>'
-                                        'avg KDA: %{customdata[1]}<br>'
-                                        'matches played: %{customdata[0]}<extra></extra>'),))
+def map_winrate(df) -> go.Figure:
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=df['winrate'],
+        y=df['map_name'],
+        orientation='h',
+        marker_color=[WIN_COLOR if wr >= 50 else LOSS_COLOR for wr in df['winrate']],
+        customdata=df[['tot_matches', 'avg_kda']].values,
+        hovertemplate=(
+            '<b>%{y}</b><br>winrate: %{x}%<br>avg KDA: %{customdata[1]}<br>'
+            'matches: %{customdata[0]}<extra></extra>'
+        ),
+        text=df['winrate'].apply(lambda w: f'{w}%'),
+        textposition='outside',
+        textfont=dict(size=10, color='#9598A1'),
+    ))
+    layout = {**LAYOUT_BASE, "bargap": 0.5}
     fig.update_layout(
-        **LAYOUT_BASE, # type: ignore
-        title='map winrate',
-        xaxis=dict(title='',gridcolor='rgba(0,0,0,0)'),
-        yaxis=dict(title='winrate',gridcolor='rgba(0,0,0,0.05)')
+        **layout,
+        title='Map winrate',
+        xaxis=dict(title='', gridcolor='rgba(255,255,255,0.08)'),
+        yaxis=dict(title='', autorange='reversed'),
     )
     return fig
 
@@ -149,7 +163,7 @@ def winrate_donut(stats: dict) -> go.Figure:
 
     layout = {
         **LAYOUT_BASE,
-        "margin": dict(l=0, r=0, t=0, b=0),   # overwrites LAYOUT_BASE's margin key
+        "margin": dict(l=0, r=0, t=0, b=0),   
         "height": 140,
         "width": 140,
     }

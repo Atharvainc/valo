@@ -32,8 +32,16 @@ form_row = dbc.Row([
         width=2
     ),
     dbc.Col(
-        dcc.Dropdown(id="queue-select",options=["Competitive", "Unranked"],value="Competitive"),
-        width=3
+    dbc.Select(
+        id="queue-select",
+        options=[
+            {"label": "Competitive", "value": "Competitive"},
+            {"label": "Unranked", "value": "Unranked"},
+        ],
+        value="Competitive",
+        className="form-select",
+    ),
+    width=3
     ),
     dbc.Col(
         html.Button("Analyze", id="submit-btn", className="btn btn-primary"),
@@ -65,60 +73,74 @@ kpi_row = dbc.Row([
     ),
 ], className="mb-4")
 
-main_row = dbc.Row([
+trend_row = dbc.Row([
     dbc.Col(
         dbc.Card(dbc.CardBody([
             dcc.Graph(id="chart-kda-trend", config={"displayModeBar": False}),
-        ])), 
-        width=8
-    ),
-    dbc.Col(
-        dbc.Card(dbc.CardBody([
-            dcc.Graph(id="chart-role-donut", config={"displayModeBar": False}),
-        ])), 
-        width=4
-    ),
-], className="mb-4")
-
-bottom_row = dbc.Row([
-    dbc.Col(
-        dbc.Card(dbc.CardBody([
-            dcc.Graph(id="chart-agent-breakdown", config={"displayModeBar": False}),
-        ])),
-        width=4
-    ),
-    dbc.Col(
-        dbc.Card(dbc.CardBody([
-            dcc.Graph(id="chart-map-winrate", config={"displayModeBar": False}),
-        ])),
-        width=4
-    ),
-    dbc.Col(
-        dbc.Card(dbc.CardBody([
-            dcc.Graph(id="chart-shot-accuracy", config={"displayModeBar": False}),
-        ])),
-        width=4
-    ),
-], className="mb-4")
-
-ai_row = dbc.Row([
-    dbc.Col(
-        dbc.Card(dbc.CardBody([
-            html.P("AI overview", className="text-muted mb-2", style={"fontSize": "12px"}),
-            html.P(id="ai-overview-text", className="mb-0"),
         ])),
         width=12
     ),
 ], className="mb-4")
 
+bars_row = dbc.Row([
+    dbc.Col(dbc.Card(dbc.CardBody([
+        dcc.Graph(id="chart-agent-breakdown", config={"displayModeBar": False}),
+    ])), width=6),
+    dbc.Col(dbc.Card(dbc.CardBody([
+        dcc.Graph(id="chart-map-winrate", config={"displayModeBar": False}),
+    ])), width=6),
+], className="mb-4")
+
+summary_row = dbc.Row([
+    dbc.Col(dbc.Card(dbc.CardBody([
+        dcc.Graph(id="chart-role-donut", config={"displayModeBar": False}),
+    ])), width=4),
+    dbc.Col(dbc.Card(dbc.CardBody([
+        html.P("AI overview", className="text-muted mb-2", style={"fontSize": "12px"}),
+        html.P(id="ai-overview-text", className="mb-0"),
+    ])), width=4),
+    dbc.Col(dbc.Card(dbc.CardBody([
+        dcc.Graph(id="chart-shot-accuracy", config={"displayModeBar": False}),
+    ])), width=4),
+], className="mb-4")
+
+empty_state = html.Div(
+    id="empty-state",
+    className="scanner-empty-state",
+    children=[
+        html.Div(className="scanner-ring"),
+        html.P("Enter a Riot ID above to pull up the dashboard"),
+    ],
+)
+
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+app.clientside_callback(
+    """
+    function(n_clicks) {
+        return "Analyzing...";
+    }
+    """,
+    Output("submit-btn", "children", allow_duplicate=True),
+    Input("submit-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+
+dashboard_content = dcc.Loading(
+    id="loading-dashboard",
+    type="circle",
+    color="#5CE1B8",
+    children=html.Div(
+        id="dashboard-content-inner",
+        children=[kpi_row, trend_row, bars_row, summary_row],
+        style={"display": "none"},
+    ),
+)
 
 app.layout = dbc.Container([
     form_row,
-    kpi_row,
-    main_row,
-    bottom_row,
-    ai_row
+    empty_state,
+    dashboard_content,
 ], fluid=True)
 
 @callback(
@@ -130,7 +152,10 @@ app.layout = dbc.Container([
     Output("chart-agent-breakdown", "figure"),
     Output("chart-map-winrate", "figure"),
     Output("chart-shot-accuracy", "figure"),
-    Output('ai-overview-text', 'children'),
+    Output("ai-overview-text", "children"),
+    Output("empty-state", "style"),        
+    Output("dashboard-content-inner", "style"), 
+    Output("submit-btn", "children"), 
     Input("submit-btn", "n_clicks"),
     State("player-name", "value"),
     State("player-tag", "value"),
@@ -160,7 +185,13 @@ def update_dashboard(n_clicks, name, tag, queue):
     donut_fig = winrate_donut(stats)
     ai_overview=generate_overview(stats=stats,df_agents=df_agents,df_maps=df_maps)
 
-    return f"{stats['avg_kda']}", f"{stats['avg_hs_pct']}%", donut_fig, trend_fig, role_fig, agent_fig, map_fig, shot_fig, ai_overview
+    return (
+        f"{stats['avg_kda']}", f"{stats['avg_hs_pct']}%", donut_fig,
+        trend_fig, role_fig, agent_fig, map_fig, shot_fig, ai_overview,
+        {"display": "none"},  
+        {"display": "block"}, 
+        'Analyze', 
+        )
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

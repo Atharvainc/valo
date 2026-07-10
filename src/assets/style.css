@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* ── Design tokens ─────────────────────────────────────────────── */
+:root {
+    --bg-base:      #0F1115;
+    --bg-surface:   #1A1D23;
+    --bg-input:     #22262E;
+    --border-line:  #2A2E37;
+    --border-focus: #FF4655;
+
+    --text-primary: #E8E6E1;
+    --text-muted:   #7B7F8A;
+    --text-eyebrow: #9598A1;
+
+    --accent-red:   #FF4655;
+    --accent-mint:  #5CE1B8;
+
+    --font-display: 'Inter', -apple-system, sans-serif;
+    --font-mono:    'JetBrains Mono', 'IBM Plex Mono', monospace;
+}
+
+/* ── Base page ─────────────────────────────────────────────────── */
+html, body {
+    background-color: var(--bg-base) !important;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+}
+
+.container-fluid {
+    padding: 24px 32px !important;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* ── Top form row ──────────────────────────────────────────────── */
+.row.align-items-center {
+    display: flex !important;
+    align-items: center !important;
+}
+
+.form-control {
+    background-color: var(--bg-input) !important;
+    border: 1px solid var(--border-line) !important;
+    border-radius: 4px !important;
+    color: var(--text-primary) !important;
+    height: 48px !important;
+    font-size: 14px !important;
+    padding: 0 14px !important;
+    box-sizing: border-box;
+}
+
+.form-control:focus {
+    border-color: var(--border-focus) !important;
+    box-shadow: none !important;
+    outline: none;
+}
+
+.form-control::placeholder {
+    color: var(--text-muted) !important;
+}
+
+.form-select {
+    background-color: var(--bg-input) !important;
+    border: 1px solid var(--border-line) !important;
+    border-radius: 4px !important;
+    color: var(--text-primary) !important;
+    height: 48px !important;
+    font-size: 14px !important;
+    padding: 0 14px !important;
+}
+
+.form-select:focus {
+    border-color: var(--border-focus) !important;
+    box-shadow: none !important;
+    outline: none;
+}
+
+.btn-primary {
+    background-color: var(--accent-red) !important;
+    border: none !important;
+    border-radius: 4px !important;
+    height: 48px !important;
+    width: 100%;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #0F1115 !important;
+}
+
+.btn-primary:hover {
+    background-color: #E63946 !important;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────── */
+.card {
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-line) !important;
+    border-radius: 4px !important;
+}
+
+.card-body {
+    padding: 18px 20px !important;
+}
+
+/* KPI eyebrow labels */
+.card-body p.text-muted {
+    font-family: var(--font-display);
+    font-size: 11px !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-eyebrow) !important;
+    margin-bottom: 6px !important;
+}
+
+/* KPI big numbers — tabular mono */
+.card-body h3 {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 30px;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    margin: 0;
+}
+
+/* ── AI overview card ─────────────────────────────────────────── */
+#ai-overview-text {
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--text-primary);
+    padding-top: 4px;
+}
+
+/* ── Empty state scanner animation ──────────────────────────────── */
+.scanner-empty-state {
+    text-align: center;
+    padding: 100px 0;
+}
+
+.scanner-ring {
+    width: 120px;
+    height: 120px;
+    border: 2px solid var(--accent-mint);
+    border-radius: 50%;
+    margin: 0 auto;
+    position: relative;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.scanner-ring::after {
+    content: '';
+    position: absolute;
+    inset: 20px;
+    border: 1px solid var(--border-line);
+    border-radius: 50%;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.35; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.08); }
+}
+
+.scanner-empty-state p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 24px;
+    letter-spacing: 0.02em;
+}
+
+/* ── Scrollbar polish (optional, purely cosmetic) ───────────────── */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--border-line);
+    border-radius: 5px;
+}
