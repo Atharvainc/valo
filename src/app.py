@@ -114,6 +114,7 @@ empty_state = html.Div(
 )
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+server=app.server
 
 app.clientside_callback(
     """
